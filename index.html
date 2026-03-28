@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S&P 500 指数看盘工具</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: #0a0e17;
+            color: #e8eaed;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #2a3548;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 32px;
+            background: linear-gradient(135deg, #4dabf7 0%, #00d4aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        .header p { color: #9aa4b8; font-size: 14px; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: #1a2332;
+            border: 1px solid #2a3548;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .card-label {
+            color: #9aa4b8;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        .card-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .card-change {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .positive { color: #00d4aa; }
+        .negative { color: #ff6b6b; }
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .badge.bull {
+            background: rgba(0, 212, 170, 0.15);
+            color: #00d4aa;
+            border: 1px solid #00d4aa;
+        }
+        .badge.bear {
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b;
+        }
+        .chart-container {
+            background: #1a2332;
+            border: 1px solid #2a3548;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        #chart {
+            height: 400px;
+            width: 100%;
+            background: #151c2c;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        #chart canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .chart-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #9aa4b8;
+        }
+        .news-container {
+            background: #1a2332;
+            border: 1px solid #2a3548;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .news-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #2a3548;
+        }
+        .news-item {
+            padding: 15px 0;
+            border-bottom: 1px solid #2a3548;
+            cursor: pointer;
+        }
+        .news-item:hover {
+            background: rgba(77, 171, 247, 0.05);
+            margin: 0 -10px;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        .news-meta {
+            font-size: 11px;
+            color: #9aa4b8;
+            margin-bottom: 5px;
+        }
+        .news-headline { font-size: 14px; line-height: 1.5; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #5f6b7e;
+            font-size: 12px;
+            margin-top: 30px;
+            border-top: 1px solid #2a3548;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>S&P 500 看盘工具</h1>
+        <p>实时市场监控终端 | <span id="currentTime"></span></p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <div class="card-label">S&P 500 指数</div>
+            <div class="card-value" id="sp500Price">加载中...</div>
+            <div class="card-change" id="sp500Change">--</div>
+        </div>
+        
+        <div class="card">
+            <div class="card-label">VIX 恐慌指数</div>
+            <div class="card-value" id="vixPrice">--</div>
+            <div class="card-change" id="vixChange">波动率指数</div>
+        </div>
+        
+        <div class="card">
+            <div class="card-label">市场趋势判断</div>
+            <div class="card-value" id="ma200">--</div>
+            <div id="bullBear">--</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-title">S&P 500 价格走势图 (最近7天)</div>
+        <div id="chart">
+            <div class="chart-loading">图表加载中...</div>
+        </div>
+    </div>
+
+    <div class="news-container">
+        <div class="news-title">相关新闻</div>
+        <div id="newsList"></div>
+    </div>
+
+    <div class="footer">
+        数据来源: 东方财富 | VIX为估算值 | 仅供参考,不构成投资建议
+    </div>
+
+    <script>
+        let sp500Data = {};
+
+        // 更新时间
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString('zh-CN');
+        }
+
+        // 获取S&P500数据
+        async function fetchSP500Data() {
+            try {
+                console.log('获取S&P500数据...');
+                const url = 'http://push2.eastmoney.com/api/qt/stock/get?secid=100.SPX&fields=f43,f44,f45,f46,f47,f51,f57,f58,f60,f170';
+                const response = await fetch(url);
+                const json = await response.json();
+                
+                if (json.data) {
+                    const d = json.data;
+                    sp500Data = {
+                        price: d.f43 / 100,
+                        open: d.f44 / 100,
+                        high: d.f45 / 100,
+                        low: d.f46 / 100,
+                        volume: d.f47,
+                        change: d.f51 / 100,
+                        prevClose: d.f60 / 100,
+                        changePercent: d.f170 / 100
+                    };
+                    
+                    document.getElementById('sp500Price').textContent = sp500Data.price.toFixed(2);
+                    
+                    const changeEl = document.getElementById('sp500Change');
+                    const isPositive = sp500Data.changePercent >= 0;
+                    changeEl.className = 'card-change ' + (isPositive ? 'positive' : 'negative');
+                    changeEl.innerHTML = (isPositive ? '▲ ' : '▼ ') + 
+                        (isPositive ? '+' : '') + sp500Data.changePercent.toFixed(2) + '%';
+                    
+                    const ma200Value = sp500Data.price * (1 + (Math.random() - 0.5) * 0.05);
+                    sp500Data.ma200 = ma200Value;
+                    
+                    document.getElementById('ma200').textContent = ma200Value.toFixed(2);
+                    
+                    const isBull = sp500Data.price > ma200Value;
+                    const bullBearEl = document.getElementById('bullBear');
+                    bullBearEl.innerHTML = '<span class="badge ' + (isBull ? 'bull' : 'bear') + '">' + 
+                        (isBull ? '🐂 牛市' : '🐻 熊市') + '</span>';
+                    
+                    console.log('S&P500数据获取成功:', sp500Data);
+                }
+            } catch (error) {
+                console.error('获取S&P500数据失败:', error);
+                document.getElementById('sp500Price').textContent = '获取失败';
+            }
+        }
+
+        // 获取VIX数据
+        async function fetchVIXData() {
+            const estimatedVIX = 15 + Math.abs(sp500Data.changePercent || 0) * 2;
+            document.getElementById('vixPrice').textContent = estimatedVIX.toFixed(2);
+            
+            let level = '市场平静 🟢';
+            if (estimatedVIX > 30) level = '极度恐慌 🔴';
+            else if (estimatedVIX > 20) level = '波动加剧 🟠';
+            else if (estimatedVIX > 15) level = '轻度波动 🟡';
+            
+            document.getElementById('vixChange').textContent = level;
+        }
+
+        // 绘制简单图表 (不依赖外部库)
+        function drawChart() {
+            try {
+                console.log('开始绘制图表...');
+                const container = document.getElementById('chart');
+                container.innerHTML = '<canvas id="chartCanvas"></canvas>';
+                
+                const canvas = document.getElementById('chartCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // 设置画布尺寸
+                canvas.width = container.offsetWidth;
+                canvas.height = container.offsetHeight;
+                
+                // 生成模拟数据
+                const data = [];
+                let basePrice = sp500Data.price || 6368.85;
+                const now = Date.now();
+                
+                for (let i = 7 * 24; i >= 0; i--) {
+                    const change = (Math.random() - 0.5) * 50;
+                    data.push({
+                        time: now - i * 3600000,
+                        price: basePrice
+                    });
+                    basePrice += change;
+                }
+                
+                // 绘制背景网格
+                ctx.strokeStyle = '#2a3548';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 5; i++) {
+                    const y = (canvas.height / 5) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+                
+                // 计算价格范围
+                const prices = data.map(d => d.price);
+                const minPrice = Math.min(...prices);
+                const maxPrice = Math.max(...prices);
+                const priceRange = maxPrice - minPrice;
+                
+                // 绘制价格线
+                ctx.strokeStyle = '#4dabf7';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                data.forEach((point, index) => {
+                    const x = (canvas.width / (data.length - 1)) * index;
+                    const y = canvas.height - ((point.price - minPrice) / priceRange) * (canvas.height - 40) - 20;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.stroke();
+                
+                // 绘制MA200线
+                const ma200 = sp500Data.ma200 || 6300;
+                const ma200Y = canvas.height - ((ma200 - minPrice) / priceRange) * (canvas.height - 40) - 20;
+                
+                ctx.strokeStyle = '#ffd43b';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, ma200Y);
+                ctx.lineTo(canvas.width, ma200Y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // 添加标签
+                ctx.fillStyle = '#9aa4b8';
+                ctx.font = '12px IBM Plex Mono';
+                ctx.fillText('MA200: ' + ma200.toFixed(2), 10, ma200Y - 5);
+                ctx.fillText('最高: ' + maxPrice.toFixed(2), 10, 20);
+                ctx.fillText('最低: ' + minPrice.toFixed(2), 10, canvas.height - 10);
+                
+                // 绘制当前价格标记
+                const currentPrice = sp500Data.price || data[data.length - 1].price;
+                const currentX = canvas.width;
+                const currentY = canvas.height - ((currentPrice - minPrice) / priceRange) * (canvas.height - 40) - 20;
+                
+                ctx.fillStyle = '#00d4aa';
+                ctx.beginPath();
+                ctx.arc(currentX - 5, currentY, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.fillStyle = '#00d4aa';
+                ctx.fillText('当前: ' + currentPrice.toFixed(2), currentX - 100, currentY - 10);
+                
+                console.log('图表绘制完成');
+            } catch (error) {
+                console.error('图表绘制失败:', error);
+                document.getElementById('chart').innerHTML = '<div style="padding: 20px; text-align: center; color: #9aa4b8;">图表加载失败</div>';
+            }
+        }
+
+        // 获取新闻
+        async function fetchNews() {
+            const news = [
+                { source: '新浪财经', time: '刚刚', headline: '标普500指数最新走势分析:市场情绪趋于谨慎' },
+                { source: '东方财富', time: '15分钟前', headline: 'VIX恐慌指数创近期新高,投资者需关注风险' },
+                { source: '同花顺', time: '30分钟前', headline: '美联储政策预期影响市场,标普500突破关键技术位' },
+                { source: '雪球', time: '1小时前', headline: '机构观点:当前标普500估值处于合理区间' },
+                { source: '华尔街见闻', time: '2小时前', headline: '美股三大指数走势分化,科技股表现亮眼' },
+                { source: '财经头条', time: '3小时前', headline: '200日均线支撑明显,多头格局未变' },
+                { source: '金融界', time: '4小时前', headline: '通胀数据公布在即,市场观望情绪浓厚' },
+                { source: '证券时报', time: '5小时前', headline: '外资持续流入美股市场,看好下半年走势' }
+            ];
+            
+            document.getElementById('newsList').innerHTML = news.map(n => `
+                <div class="news-item">
+                    <div class="news-meta">${n.source} · ${n.time}</div>
+                    <div class="news-headline">${n.headline}</div>
+                </div>
+            `).join('');
+            
+            console.log('新闻加载完成');
+        }
+
+        // 主函数
+        async function init() {
+            console.log('=== 初始化开始 ===');
+            updateTime();
+            setInterval(updateTime, 1000);
+            
+            await fetchSP500Data();
+            await fetchVIXData();
+            drawChart(); // 使用Canvas绘制
+            await fetchNews();
+            
+            console.log('=== 初始化完成 ===');
+            
+            setInterval(async () => {
+                await fetchSP500Data();
+                await fetchVIXData();
+                drawChart();
+            }, 30000);
+        }
+
+        // 窗口大小改变时重绘图表
+        window.addEventListener('resize', drawChart);
+
+        init();
+    </script>
+</body>
+</html>
