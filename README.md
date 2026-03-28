@@ -243,8 +243,8 @@ sp500-dashboard/
 
 ## 📮 联系方式
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/sp500-dashboard/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/sp500-dashboard/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Chaobs/sp500-dashboard/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Chaobs/sp500-dashboard/discussions)
 
 ---
 
